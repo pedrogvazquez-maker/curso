@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Creador de Sopas de Letras y Crucigramas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        customBlue: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Desactivar scroll al arrastrar en la sopa de letras en móviles */
+        .no-scroll {
+            touch-action: none;
+            overflow: hidden;
+        }
+        /* Grid de Sopa de Letras optimizado */
+        .sopa-grid {
+            user-select: none;
+            touch-action: none;
+        }
+        /* Ocultar flechas de inputs de número */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Animaciones para ganar */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300">
+
+    <!-- CABECERA -->
+    <header class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl text-white shadow-md">
+                    <i data-lucide="puzzle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg md:text-xl bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300 bg-clip-text text-transparent">
+                        MenteÁgil
+                    </h1>
+                    <p class="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 font-medium tracking-wide uppercase">Generador de Pasatiempos</p>
+                </div>
+            </div>
+
+            <!-- Botones derecho -->
+            <div class="flex items-center gap-2">
+                <!-- Toggle de Modo Oscuro -->
+                <button id="themeToggle" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-slate-500 dark:text-slate-400" aria-label="Cambiar Tema">
+                    <i data-lucide="sun" id="sunIcon" class="w-5 h-5 hidden"></i>
+                    <i data-lucide="moon" id="moonIcon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SELECTOR DE PASATIEMPOS (TABS) -->
+    <div class="w-full max-w-7xl mx-auto px-4 mt-6">
+        <div class="bg-slate-200/60 dark:bg-slate-900 p-1.5 rounded-2xl flex gap-1.5 shadow-inner">
+            <button onclick="switchAppMode('sopa')" id="tab-sopa" class="flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm">
+                <i data-lucide="grid" class="w-4 h-4"></i>
+                <span>Sopa de Letras</span>
+            </button>
+            <button onclick="switchAppMode('crucigrama')" id="tab-crucigrama" class="flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                <i data-lucide="table-properties" class="w-4 h-4"></i>
+                <span>Crucigrama</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- NOTIFICACIONES DE ACCIÓN (TOAST) -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 max-w-sm w-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800/20">
+        <i data-lucide="info" id="toastIcon" class="w-5 h-5 text-blue-400 shrink-0"></i>
+        <p id="toastMessage" class="text-xs font-semibold leading-relaxed"></p>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6 items-stretch">
+        
+        <!-- PANEL DE CONFIGURACIÓN (Izquierda) -->
+        <div class="w-full lg:w-96 flex flex-col gap-5 shrink-0">
+            
+            <!-- TARJETA: PLANTILLAS TEMÁTICAS -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-5 shadow-sm">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                    Temas Rápidos de Prueba
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="loadTemplate('animales')" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/20 text-xs font-semibold text-left transition-all active:scale-95 flex items-center gap-2">
+                        <span>🦁</span> Animales
+                    </button>
+                    <button onclick="loadTemplate('paises')" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/20 text-xs font-semibold text-left transition-all active:scale-95 flex items-center gap-2">
+                        <span>🌎</span> Países
+                    </button>
+                    <button onclick="loadTemplate('frutas')" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/20 text-xs font-semibold text-left transition-all active:scale-95 flex items-center gap-2">
+                        <span>🍎</span> Frutas
+                    </button>
+                    <button onclick="loadTemplate('tech')" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/20 text-xs font-semibold text-left transition-all active:scale-95 flex items-center gap-2">
+                        <span>💻</span> Tecnología
+                    </button>
+                </div>
+            </div>
+
+            <!-- TARJETA: CONFIGURACIÓN DINÁMICA -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-5 shadow-sm flex-1 flex flex-col justify-between">
+                
+                <!-- Sección superior -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-5 h-5 text-blue-500"></i>
+                            Cargar Datos
+                        </h2>
+                        <span id="modeBadge" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 uppercase tracking-wider">Sopa de Letras</span>
+                    </div>
+
+                    <!-- Config Sopa de Letras -->
+                    <div id="config-sopa" class="space-y-4">
+                        <!-- Tamaño de la Sopa -->
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Tamaño del Tablero</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="setGridSize(10)" id="size-10" class="py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs transition-all active:scale-95">10x10</button>
+                                <button onclick="setGridSize(12)" id="size-12" class="py-2 rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-xs transition-all active:scale-95">12x12</button>
+                                <button onclick="setGridSize(15)" id="size-15" class="py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs transition-all active:scale-95">15x15</button>
+                            </div>
+                        </div>
+
+                        <!-- Dificultad -->
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Direcciones de Letras</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setDifficulty('easy')" id="diff-easy" class="py-2 px-3 rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-xs text-left transition-all flex items-center justify-between">
+                                    <span>Fácil</span>
+                                    <span class="text-[9px] bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded">➡️ ⬇️</span>
+                                </button>
+                                <button onclick="setDifficulty('hard')" id="diff-hard" class="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs text-left transition-all flex items-center justify-between">
+                                    <span>Difícil</span>
+                                    <span class="text-[9px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">↗️ ↙️ 🔄</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Config Crucigrama -->
+                    <div id="config-crucigrama" class="space-y-4 hidden">
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Carga tus palabras y las pistas/definiciones asociadas en el listado de abajo. El sistema intentará cruzarlas automáticamente de la mejor manera.
+                        </p>
+                    </div>
+
+                    <!-- Entrada de Palabras Dinámicas -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider" id="listTitleLabel">Palabras / Pistas</label>
+                            <button onclick="addNewWordInput()" class="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-bold flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir Palabra
+                            </button>
+                        </div>
+                        
+                        <!-- Lista Escroleable de Inputs -->
+                        <div id="wordInputsContainer" class="space-y-2 max-h-[220px] md:max-h-[280px] overflow-y-auto pr-1">
+                            <!-- Los inputs se generan dinámicamente aquí -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón Generador -->
+                <div class="pt-5 border-t border-slate-100 dark:border-slate-800/80 mt-4">
+                    <button onclick="generateGame()" class="w-full py-4 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all text-white font-bold rounded-2xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        <span>Construir Tablero</span>
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ÁREA DEL JUEGO INTERACTIVO (Derecha) -->
+        <div class="flex-1 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-4 md:p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
+            
+            <!-- HEADER DEL JUEGO -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-500">
+                        <i id="gameIcon" data-lucide="grid" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 id="gameTitle" class="font-bold text-base md:text-lg text-slate-800 dark:text-white">Sopa de Letras Interactiva</h2>
+                        <p id="gameSubtitle" class="text-xs text-slate-400 dark:text-slate-500">Selecciona arrastrando sobre las letras para encontrar las palabras</p>
+                    </div>
+                </div>
+
+                <!-- Controles de pantalla de juego -->
+                <div class="flex items-center gap-2 self-end sm:self-auto">
+                    <!-- Botón Imprimir/Exportar -->
+                    <button onclick="window.print()" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-2 text-xs font-bold active:scale-95 transition-all">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        <span>Imprimir</span>
+                    </button>
+                    <!-- Botón Limpiar/Reiniciar -->
+                    <button onclick="resetCurrentGame()" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-2 text-xs font-bold active:scale-95 transition-all">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        <span>Reiniciar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR CENTRAL: CUADRÍCULA E INTERFACES -->
+            <div class="flex-1 flex flex-col lg:flex-row gap-6 items-center lg:items-stretch justify-center py-6">
+                
+                <!-- SUB-SECCIÓN: VISTA JUEGO SOPA DE LETRAS -->
+                <div id="game-sopa-view" class="w-full max-w-[340px] md:max-w-[420px] aspect-square flex items-center justify-center relative">
+                    <div id="sopaGridContainer" class="sopa-grid w-full h-full grid gap-1 p-2 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800/80">
+                        <!-- Las celdas se insertan aquí vía JS -->
+                    </div>
+                </div>
+
+                <!-- SUB-SECCIÓN: VISTA JUEGO CRUCIGRAMA -->
+                <div id="game-crucigrama-view" class="w-full max-w-[440px] flex-col items-center justify-center hidden">
+                    <!-- Grilla del Crucigrama -->
+                    <div id="crucigramaGridContainer" class="grid gap-[2px] p-2 bg-slate-200 dark:bg-slate-950 rounded-2xl border border-slate-300 dark:border-slate-800 w-full overflow-auto max-h-[380px] max-w-full justify-center">
+                        <!-- Celdas del crucigrama se generan aquí -->
+                    </div>
+                </div>
+
+                <!-- PANEL LATERAL DE PALABRAS / PISTAS -->
+                <div class="w-full lg:w-64 shrink-0 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-slate-800/80 pt-5 lg:pt-0 lg:pl-5">
+                    
+                    <!-- Sopa Letras: Lista de palabras -->
+                    <div id="list-sopa-panel" class="space-y-3 h-full flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Palabras por buscar</span>
+                                <span id="wordProgress" class="text-xs font-extrabold text-blue-500">0/0</span>
+                            </div>
+                            <!-- Contenedor de palabras -->
+                            <div id="sopaWordsList" class="flex flex-wrap lg:flex-col gap-2 max-h-[160px] lg:max-h-[320px] overflow-y-auto">
+                                <!-- Generadas por JS -->
+                            </div>
+                        </div>
+
+                        <!-- Felicitación oculta -->
+                        <div id="winBanner" class="p-4 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30 rounded-2xl hidden flex-col items-center text-center gap-1.5 animate-bounce">
+                            <span class="text-lg">🎉 ¡Felicidades! 🎉</span>
+                            <span class="text-[11px] font-semibold">Has encontrado todas las palabras con éxito.</span>
+                        </div>
+                    </div>
+
+                    <!-- Crucigrama: Lista de pistas -->
+                    <div id="list-crucigrama-panel" class="space-y-4 hidden h-full flex flex-col justify-between">
+                        <div class="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[250px] lg:max-h-[350px]">
+                            <!-- Horizontales -->
+                            <div>
+                                <h4 class="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Horizontales
+                                </h4>
+                                <ul id="cluesAcross" class="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                                    <!-- Dinámico -->
+                                </ul>
+                            </div>
+                            <!-- Verticales -->
+                            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                                <h4 class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                    <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i> Verticales
+                                </h4>
+                                <ul id="cluesDown" class="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                                    <!-- Dinámico -->
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Banner de Victoria Crucigrama -->
+                        <div id="crosswordWinBanner" class="p-4 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-900/30 rounded-2xl hidden flex-col items-center text-center gap-1.5">
+                            <span class="text-lg">🏆 ¡Resuelto! 🏆</span>
+                            <span class="text-[11px] font-semibold">Has rellenado el crucigrama correctamente.</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full text-center py-5 text-xs text-slate-400 dark:text-slate-600 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-6 shrink-0">
+        <p>MenteÁgil Generador • Diseñado para dispositivos móviles y de escritorio</p>
+    </footer>
+
+    <!-- LÓGICA DEL JUEGO -->
+    <script>
+        // Inicializar iconos de Lucide
+        lucide.createIcons();
+
+        // --- VARIABLES DE ESTADO GLOBAL ---
+        let appMode = 'sopa'; // 'sopa' o 'crucigrama'
+        let currentGridSize = 12; 
+        let currentDifficulty = 'easy'; // 'easy' o 'hard'
+        
+        // Sopa de letras
+        let sopaWords = []; // { text, found, cells: [{r, c}] }
+        let sopaGrid = [];  // Matriz de letras
+        let isSelecting = false;
+        let selectStartCell = null;
+        let selectEndCell = null;
+        let selectedCellsList = [];
+
+        // Crucigrama
+        let crosswordWords = []; // { word, clue }
+        let crosswordGrid = [];  // Matriz de celdas
+        let crosswordGridWidth = 13;
+        let crosswordGridHeight = 13;
+        let crosswordPlacements = []; // { word, r, c, dir, num }
+
+        // Plantillas Temáticas de Prueba
+        const templates = {
+            animales: [
+                { word: 'LEON', clue: 'El rey de la selva' },
+                { word: 'TIGRE', clue: 'Felino de pelaje rayado' },
+                { word: 'CEBRA', clue: 'Equino de rayas blancas y negras' },
+                { word: 'JIRAFA', clue: 'Animal terrestre más alto' },
+                { word: 'DELFIN', clue: 'Mamífero marino inteligente' },
+                { word: 'PANDA', clue: 'Oso que come bambú' }
+            ],
+            paises: [
+                { word: 'MEXICO', clue: 'Cuna del mariachi y el taco' },
+                { word: 'ESPAÑA', clue: 'País de la península ibérica' },
+                { word: 'BRASIL', clue: 'País del carnaval y el Amazonas' },
+                { word: 'ITALIA', clue: 'País con forma de bota' },
+                { word: 'FRANCIA', clue: 'Hogar de la Torre Eiffel' },
+                { word: 'JAPON', clue: 'Tierra del sol naciente' }
+            ],
+            frutas: [
+                { word: 'MANZANA', clue: 'Roja o verde, famosa por Newton' },
+                { word: 'PLATANO', clue: 'Fruta amarilla rica en potasio' },
+                { word: 'NARANJA', clue: 'Cítrico rico en Vitamina C' },
+                { word: 'SANDIA', clue: 'Grande, verde por fuera y roja por dentro' },
+                { word: 'LIMON', clue: 'Muy ácido y de color amarillo o verde' },
+                { word: 'MANGO', clue: 'Tropical, dulce y de pulpa carnosa' }
+            ],
+            tech: [
+                { word: 'CELULAR', clue: 'Dispositivo móvil personal' },
+                { word: 'TECLADO', clue: 'Periférico usado para escribir' },
+                { word: 'ROUTER', clue: 'Distribuye la señal de internet inalámbrica' },
+                { word: 'PANTALLA', clue: 'Muestra visualmente la información' },
+                { word: 'CODIGO', clue: 'Instrucciones lógicas para programar' },
+                { word: 'RATON', clue: 'Dispositivo apuntador de computadora' }
+            ]
+        };
+
+        // Al iniciar la ventana
+        window.onload = function() {
+            loadTemplate('animales');
+            setupTheme();
+        }
+
+        // --- MODO OSCURO ---
+        function setupTheme() {
+            const themeToggle = document.getElementById('themeToggle');
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+
+            themeToggle.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                    sunIcon.classList.remove('hidden');
+                    moonIcon.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- SISTEMA DE TOAST DE NOTIFICACIÓN ---
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = message;
+
+            if (type === 'success') {
+                toastIcon.setAttribute('data-lucide', 'check-circle-2');
+                toastIcon.className = "w-5 h-5 text-green-500 shrink-0";
+            } else if (type === 'error') {
+                toastIcon.setAttribute('data-lucide', 'alert-triangle');
+                toastIcon.className = "w-5 h-5 text-red-500 shrink-0";
+            } else {
+                toastIcon.setAttribute('data-lucide', 'info');
+                toastIcon.className = "w-5 h-5 text-blue-500 shrink-0";
+            }
+
+            lucide.createIcons();
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+        // --- CAMBIAR MODO DE APLICACIÓN (SOPA / CRUCIGRAMA) ---
+        function switchAppMode(mode) {
+            appMode = mode;
+            
+            const tabSopa = document.getElementById('tab-sopa');
+            const tabCrucigrama = document.getElementById('tab-crucigrama');
+            const configSopa = document.getElementById('config-sopa');
+            const configCrucigrama = document.getElementById('config-crucigrama');
+            const viewSopa = document.getElementById('game-sopa-view');
+            const viewCrucigrama = document.getElementById('game-crucigrama-view');
+            const panelSopa = document.getElementById('list-sopa-panel');
+            const panelCrucigrama = document.getElementById('list-crucigrama-panel');
+            const badge = document.getElementById('modeBadge');
+            const gTitle = document.getElementById('gameTitle');
+            const gSub = document.getElementById('gameSubtitle');
+            const gIcon = document.getElementById('gameIcon');
+
+            if (mode === 'sopa') {
+                tabSopa.className = "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                tabCrucigrama.className = "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+                
+                configSopa.classList.remove('hidden');
+                configCrucigrama.classList.add('hidden');
+                viewSopa.classList.remove('hidden');
+                viewCrucigrama.classList.add('hidden');
+                panelSopa.classList.remove('hidden');
+                panelCrucigrama.classList.add('hidden');
+
+                badge.textContent = "Sopa de Letras";
+                badge.className = "text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 uppercase tracking-wider";
+                gTitle.textContent = "Sopa de Letras Interactiva";
+                gSub.textContent = "Selecciona arrastrando sobre las letras para encontrar las palabras";
+                gIcon.setAttribute('data-lucide', 'grid');
+            } else {
+                tabCrucigrama.className = "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                tabSopa.className = "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+
+                configSopa.classList.add('hidden');
+                configCrucigrama.classList.remove('hidden');
+                viewSopa.classList.add('hidden');
+                viewCrucigrama.classList.remove('hidden');
+                panelSopa.classList.add('hidden');
+                panelCrucigrama.classList.remove('hidden');
+
+                badge.textContent = "Crucigrama";
+                badge.className = "text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 uppercase tracking-wider";
+                gTitle.textContent = "Crucigrama de Conceptos";
+                gSub.textContent = "Haz clic en una casilla blanca y escribe tu respuesta basada en las pistas";
+                gIcon.setAttribute('data-lucide', 'table-properties');
+            }
+
+            lucide.createIcons();
+            generateGame();
+        }
+
+        // --- AJUSTE DE CONTROLES DE SOPA ---
+        function setGridSize(size) {
+            currentGridSize = size;
+            [10, 12, 15].forEach(s => {
+                const btn = document.getElementById(`size-${s}`);
+                if (s === size) {
+                    btn.className = "py-2 rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-xs transition-all active:scale-95";
+                } else {
+                    btn.className = "py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-bold text-xs transition-all active:scale-95";
+                }
+            });
+        }
+
+        // --- DIFICULTAD ---
+        function setDifficulty(diff) {
+            currentDifficulty = diff;
+            const easyBtn = document.getElementById('diff-easy');
+            const hardBtn = document.getElementById('diff-hard');
+
+            if (diff === 'easy') {
+                easyBtn.className = "py-2 px-3 rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-xs text-left transition-all flex items-center justify-between";
+                hardBtn.className = "py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs text-left transition-all flex items-center justify-between";
+            } else {
+                easyBtn.className = "py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs text-left transition-all flex items-center justify-between";
+                hardBtn.className = "py-2 px-3 rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-xs text-left transition-all flex items-center justify-between";
+            }
+        }
+
+        // --- SISTEMA DE ENTRADA DINÁMICA DE PALABRAS ---
+        function addNewWordInput(word = '', clue = '') {
+            const container = document.getElementById('wordInputsContainer');
+            const div = document.createElement('div');
+            div.className = "flex items-start gap-2 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-900 group transition-all";
+
+            div.innerHTML = `
+                <div class="flex-1 space-y-1.5">
+                    <input type="text" placeholder="PALABRA" value="${word.toUpperCase()}" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ]/g,'')" class="word-text-input w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                    <input type="text" placeholder="Pista / Definición" value="${clue}" class="clue-text-input w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-[11px] text-slate-500 dark:text-slate-400">
+                </div>
+                <button onclick="removeWordInput(this)" class="p-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all self-center" title="Eliminar">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            `;
+
+            container.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function removeWordInput(btn) {
+            const row = btn.closest('div');
+            row.remove();
+        }
+
+        // Carga Plantillas Estructurales de Ejemplo
+        function loadTemplate(name) {
+            const list = templates[name];
+            if (!list) return;
+
+            const container = document.getElementById('wordInputsContainer');
+            container.innerHTML = '';
+
+            list.forEach(item => {
+                addNewWordInput(item.word, item.clue);
+            });
+
+            showToast(`Cargada plantilla de "${name.toUpperCase()}"`, 'success');
+            generateGame();
+        }
+
+        // Obtener la información actual que ha rellenado el usuario en los inputs
+        function getWordsFromInputs() {
+            const wordInputs = document.querySelectorAll('.word-text-input');
+            const clueInputs = document.querySelectorAll('.clue-text-input');
+            const result = [];
+
+            for (let i = 0; i < wordInputs.length; i++) {
+                const w = wordInputs[i].value.trim().toUpperCase().replace(/[^A-ZÑ]/g, '');
+                const c = clueInputs[i].value.trim();
+                if (w.length >= 2) {
+                    result.push({ word: w, clue: c || `Definición para la palabra ${w}` });
+                }
+            }
+            return result;
+        }
+
+        // --- CONSTRUCTOR DE JUEGOS GENERAL ---
+        function generateGame() {
+            const wordsList = getWordsFromInputs();
+            if (wordsList.length === 0) {
+                showToast("Por favor ingresa al menos 2 palabras válidas.", "error");
+                return;
+            }
+
+            if (appMode === 'sopa') {
+                buildSopaDeLetras(wordsList);
+            } else {
+                buildCrucigrama(wordsList);
+            }
+        }
+
+
+        // ==========================================
+        //  SISTEMA: GENERADOR DE SOPA DE LETRAS
+        // ==========================================
+        function buildSopaDeLetras(rawWords) {
+            sopaWords = rawWords.map(w => ({ text: w.word, found: false, cells: [] }));
+            
+            // Inicializar matriz vacía
+            sopaGrid = Array(currentGridSize).fill(null).map(() => Array(currentGridSize).fill(''));
+
+            // Direcciones de colocación permitidas
+            const easyDirections = [
+                [0, 1],   // Derecha
+                [1, 0],   // Abajo
+            ];
+            const hardDirections = [
+                [0, 1],   // Derecha
+                [1, 0],   // Abajo
+                [1, 1],   // Diagonal Abajo-Derecha
+                [-1, 1],  // Diagonal Arriba-Derecha
+                [0, -1],  // Izquierda
+                [-1, 0]   // Arriba
+            ];
+
+            const activeDirs = (currentDifficulty === 'easy') ? easyDirections : hardDirections;
+
+            // Intentar acomodar cada una de las palabras en el tablero
+            sopaWords.forEach(wordObj => {
+                const text = wordObj.text;
+                let placed = false;
+                let attempts = 0;
+
+                while (!placed && attempts < 150) {
+                    attempts++;
+                    const dir = activeDirs[Math.floor(Math.random() * activeDirs.length)];
+                    const r = Math.floor(Math.random() * currentGridSize);
+                    const c = Math.floor(Math.random() * currentGridSize);
+
+                    if (canPlaceWordInSopa(text, r, c, dir)) {
+                        const coordinates = placeWordInSopa(text, r, c, dir);
+                        wordObj.cells = coordinates;
+                        placed = true;
+                    }
+                }
+            });
+
+            // Rellenar casillas vacías con caracteres aleatorios del abecedario
+            const alphabet = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
+            for (let r = 0; r < currentGridSize; r++) {
+                for (let c = 0; c < currentGridSize; c++) {
+                    if (sopaGrid[r][c] === '') {
+                        sopaGrid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    }
+                }
+            }
+
+            // Dibujar tablero visual
+            renderSopaGrid();
+            renderSopaWordsList();
+            document.getElementById('winBanner').classList.add('hidden');
+        }
+
+        function canPlaceWordInSopa(word, r, c, dir) {
+            const len = word.length;
+            const dr = dir[0];
+            const dc = dir[1];
+
+            // Comprobar desbordamientos
+            const endRow = r + dr * (len - 1);
+            const endCol = c + dc * (len - 1);
+
+            if (endRow < 0 || endRow >= currentGridSize || endCol < 0 || endCol >= currentGridSize) {
+                return false;
+            }
+
+            // Validar solapamiento permitido
+            for (let i = 0; i < len; i++) {
+                const currentCellChar = sopaGrid[r + dr * i][c + dc * i];
+                if (currentCellChar !== '' && currentCellChar !== word[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function placeWordInSopa(word, r, c, dir) {
+            const len = word.length;
+            const dr = dir[0];
+            const dc = dir[1];
+            const coords = [];
+
+            for (let i = 0; i < len; i++) {
+                const currR = r + dr * i;
+                const currC = c + dc * i;
+                sopaGrid[currR][currC] = word[i];
+                coords.push({ r: currR, c: currC });
+            }
+            return coords;
+        }
+
+        function renderSopaGrid() {
+            const container = document.getElementById('sopaGridContainer');
+            container.innerHTML = '';
+            
+            // Ajustar columnas dinámicamente según Tailwind
+            container.style.gridTemplateColumns = `repeat(${currentGridSize}, minmax(0, 1fr))`;
+
+            for (let r = 0; r < currentGridSize; r++) {
+                for (let c = 0; c < currentGridSize; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = "aspect-square flex items-center justify-center text-xs md:text-sm font-extrabold select-none bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-slate-800/60 rounded-lg text-slate-800 dark:text-slate-100 cursor-pointer active:scale-95 transition-all shadow-sm";
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.textContent = sopaGrid[r][c];
+
+                    // Eventos para Mouse
+                    cell.addEventListener('mousedown', startSelectMouse);
+                    cell.addEventListener('mouseenter', enterSelectMouse);
+                    
+                    // Eventos para Pantallas Táctiles (Móviles)
+                    cell.addEventListener('touchstart', startSelectTouch, { passive: false });
+
+                    container.appendChild(cell);
+                }
+            }
+
+            // Terminar selección global del mouse
+            window.addEventListener('mouseup', endSelectMouse);
+
+            // Control táctil de movimiento en el contenedor
+            container.addEventListener('touchmove', moveSelectTouch, { passive: false });
+            container.addEventListener('touchend', endSelectTouch);
+        }
+
+        function renderSopaWordsList() {
+            const listContainer = document.getElementById('sopaWordsList');
+            listContainer.innerHTML = '';
+
+            let foundCount = 0;
+            sopaWords.forEach(wordObj => {
+                const item = document.createElement('div');
+                if (wordObj.found) {
+                    foundCount++;
+                    item.className = "py-1.5 px-3 rounded-xl bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30 text-xs font-bold line-through flex items-center gap-2 animate-pop";
+                    item.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> ${wordObj.text}`;
+                } else {
+                    item.className = "py-1.5 px-3 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800/80 text-xs font-bold flex items-center gap-2";
+                    item.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> ${wordObj.text}`;
+                }
+                listContainer.appendChild(item);
+            });
+
+            document.getElementById('wordProgress').textContent = `${foundCount}/${sopaWords.length}`;
+            lucide.createIcons();
+        }
+
+        // --- MANEJO DEL GESTO DE SELECCIÓN (RATÓN Y TOUCH) ---
+        function startSelectMouse(e) {
+            isSelecting = true;
+            selectStartCell = {
+                r: parseInt(e.currentTarget.dataset.row),
+                c: parseInt(e.currentTarget.dataset.col)
+            };
+            selectEndCell = selectStartCell;
+            highlightSelection();
+        }
+
+        function enterSelectMouse(e) {
+            if (!isSelecting) return;
+            selectEndCell = {
+                r: parseInt(e.currentTarget.dataset.row),
+                c: parseInt(e.currentTarget.dataset.col)
+            };
+            highlightSelection();
+        }
+
+        function endSelectMouse() {
+            if (!isSelecting) return;
+            isSelecting = false;
+            checkSelectionResult();
+            clearHighlights();
+        }
+
+        // Soporte Táctil Móvil
+        function startSelectTouch(e) {
+            e.preventDefault();
+            isSelecting = true;
+            document.body.classList.add('no-scroll');
+            
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            const gridCell = target ? target.closest('[data-row]') : null;
+
+            if (gridCell) {
+                selectStartCell = {
+                    r: parseInt(gridCell.dataset.row),
+                    c: parseInt(gridCell.dataset.col)
+                };
+                selectEndCell = selectStartCell;
+                highlightSelection();
+            }
+        }
+
+        function moveSelectTouch(e) {
+            if (!isSelecting) return;
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            const gridCell = target ? target.closest('[data-row]') : null;
+
+            if (gridCell) {
+                const currRow = parseInt(gridCell.dataset.row);
+                const currCol = parseInt(gridCell.dataset.col);
+                
+                if (selectEndCell.r !== currRow || selectEndCell.c !== currCol) {
+                    selectEndCell = { r: currRow, c: currCol };
+                    highlightSelection();
+                }
+            }
+        }
+
+        function endSelectTouch() {
+            if (!isSelecting) return;
+            isSelecting = false;
+            document.body.classList.remove('no-scroll');
+            checkSelectionResult();
+            clearHighlights();
+        }
+
+        // Calcula el camino recto/diagonal entre el inicio y el fin seleccionado
+        function calculateSelectionLine(start, end) {
+            const cells = [];
+            const dRow = end.r - start.r;
+            const dCol = end.c - start.c;
+
+            // Determinar tipo de dirección
+            const absDR = Math.abs(dRow);
+            const absDC = Math.abs(dCol);
+
+            let steps = 0;
+            let rStep = 0;
+            let cStep = 0;
+
+            if (dRow === 0 && dCol !== 0) { // Horizontal
+                steps = absDC;
+                cStep = dCol / absDC;
+            } else if (dCol === 0 && dRow !== 0) { // Vertical
+                steps = absDR;
+                rStep = dRow / absDR;
+            } else if (absDR === absDC && dRow !== 0) { // Diagonal exacta
+                steps = absDR;
+                rStep = dRow / absDR;
+                cStep = dCol / absDC;
+            } else {
+                // No es línea recta o diagonal perfecta permitida
+                return [start];
+            }
+
+            for (let i = 0; i <= steps; i++) {
+                cells.push({
+                    r: start.r + rStep * i,
+                    c: start.c + cStep * i
+                });
+            }
+            return cells;
+        }
+
+        // Resalta las celdas actualmente seleccionadas de forma translúcida
+        function highlightSelection() {
+            clearHighlights();
+            selectedCellsList = calculateSelectionLine(selectStartCell, selectEndCell);
+
+            selectedCellsList.forEach(cell => {
+                const gridCell = document.querySelector(`[data-row="${cell.r}"][data-col="${cell.c}"]`);
+                if (gridCell) {
+                    // Si no es una celda verde ya descubierta, le damos estilo de selección temporal
+                    if (!gridCell.classList.contains('text-green-600')) {
+                        gridCell.classList.add('bg-blue-100', 'dark:bg-blue-900/50', 'text-blue-600', 'dark:text-blue-300', 'scale-95');
+                    }
+                }
+            });
+        }
+
+        function clearHighlights() {
+            const gridContainer = document.getElementById('sopaGridContainer');
+            Array.from(gridContainer.children).forEach(cell => {
+                cell.classList.remove('bg-blue-100', 'dark:bg-blue-900/50', 'text-blue-600', 'dark:text-blue-300', 'scale-95');
+            });
+        }
+
+        // Comprueba si la selección coincide con alguna palabra del listado
+        function checkSelectionResult() {
+            if (selectedCellsList.length === 0) return;
+
+            // Extraer letras de la selección
+            const stringSelected = selectedCellsList.map(cell => sopaGrid[cell.r][cell.c]).join('');
+            const reversedString = stringSelected.split('').reverse().join('');
+
+            let foundAny = false;
+
+            sopaWords.forEach(wordObj => {
+                if (!wordObj.found && (wordObj.text === stringSelected || wordObj.text === reversedString)) {
+                    wordObj.found = true;
+                    foundAny = true;
+                    
+                    // Colorear de verde fijo e irreversible las celdas del tablero
+                    wordObj.cells.forEach(cell => {
+                        const gridCell = document.querySelector(`[data-row="${cell.r}"][data-col="${cell.c}"]`);
+                        if (gridCell) {
+                            gridCell.className = "aspect-square flex items-center justify-center text-xs md:text-sm font-extrabold select-none bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900/40 rounded-lg cursor-pointer active:scale-95 transition-all shadow-sm animate-pop";
+                        }
+                    });
+
+                    showToast(`¡Encontraste: ${wordObj.text}!`, 'success');
+                }
+            });
+
+            if (foundAny) {
+                renderSopaWordsList();
+                checkSopaVictory();
+            }
+        }
+
+        function checkSopaVictory() {
+            const allFound = sopaWords.every(w => w.found);
+            if (allFound) {
+                document.getElementById('winBanner').classList.remove('hidden');
+                showToast("¡Enhorabuena, completaste la sopa de letras!", "success");
+            }
+        }
+
+
+        // ==========================================
+        //  SISTEMA: GENERADOR DE CRUCIGRAMAS
+        // ==========================================
+        function buildCrucigrama(rawWords) {
+            crosswordWords = rawWords.map(w => ({ word: w.word, clue: w.clue }));
+            crosswordPlacements = [];
+            
+            // Inicializar matriz de datos para el crucigrama vacía
+            crosswordGrid = Array(crosswordGridHeight).fill(null).map(() => 
+                Array(crosswordGridWidth).fill(null).map(() => ({
+                    char: '', r: 0, c: 0, black: true, number: '', acrossNum: null, downNum: null
+                }))
+            );
+
+            // Ordenar las palabras de mayor a menor longitud para maximizar los cruces
+            const sortedWords = [...crosswordWords].sort((a, b) => b.word.length - a.word.length);
+
+            // 1. Colocar la primera palabra más larga en el centro horizontalmente
+            const first = sortedWords.shift();
+            const startR = Math.floor(crosswordGridHeight / 2);
+            const startC = Math.max(0, Math.floor((crosswordGridWidth - first.word.length) / 2));
+            
+            placeWordInCrossword(first.word, first.clue, startR, startC, 'across', 1);
+
+            // 2. Intentar colocar el resto de las palabras buscando intersecciones
+            let nextNum = 2;
+            sortedWords.forEach(item => {
+                let placed = false;
+
+                // Buscar intersecciones de letras entre la nueva palabra y lo ya colocado
+                for (let placedWord of crosswordPlacements) {
+                    for (let i = 0; i < placedWord.word.length; i++) {
+                        const pChar = placedWord.word[i];
+                        const pR = placedWord.dir === 'across' ? placedWord.r : placedWord.r + i;
+                        const pC = placedWord.dir === 'across' ? placedWord.c + i : placedWord.c;
+
+                        // Buscar coincidencia de letra en la nueva palabra
+                        for (let j = 0; j < item.word.length; j++) {
+                            if (item.word[j] === pChar) {
+                                // Determinar dirección opuesta a la palabra cruzada
+                                const nextDir = placedWord.dir === 'across' ? 'down' : 'across';
+                                const targetR = nextDir === 'down' ? pR - j : pR;
+                                const targetC = nextDir === 'down' ? pC : pC - j;
+
+                                if (canPlaceWordInCrossword(item.word, targetR, targetC, nextDir)) {
+                                    placeWordInCrossword(item.word, item.clue, targetR, targetC, nextDir, nextNum++);
+                                    placed = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (placed) break;
+                    }
+                    if (placed) break;
+                }
+            });
+
+            // Reorganizar y renderizar
+            renderCrosswordGrid();
+            renderCrosswordClues();
+            document.getElementById('crosswordWinBanner').classList.add('hidden');
+        }
+
+        function canPlaceWordInCrossword(word, r, c, dir) {
+            const len = word.length;
+            const isAcross = dir === 'across';
+
+            // Validar límites
+            if (r < 0 || c < 0 || (isAcross && c + len > crosswordGridWidth) || (!isAcross && r + len > crosswordGridHeight)) {
+                return false;
+            }
+
+            // Comprobar espacios vacíos y colindantes
+            for (let i = 0; i < len; i++) {
+                const currR = isAcross ? r : r + i;
+                const currC = isAcross ? c + i : c;
+                const cell = crosswordGrid[currR][currC];
+
+                // Si la casilla no está vacía y tiene una letra diferente
+                if (!cell.black && cell.char !== word[i]) {
+                    return false;
+                }
+
+                // Asegurar que no "pegue" de forma paralela a otra palabra (reglas del crucigrama clásico)
+                if (cell.black) {
+                    if (isAcross) {
+                        // Revisar arriba/abajo
+                        if ((currR > 0 && !crosswordGrid[currR - 1][currC].black && crosswordGrid[currR - 1][currC].char !== '') ||
+                            (currR < crosswordGridHeight - 1 && !crosswordGrid[currR + 1][currC].black && crosswordGrid[currR + 1][currC].char !== '')) {
+                            // Excepto si es el punto de cruce de letra (pero aquí cell.black es true, por lo tanto no es un cruce)
+                            return false;
+                        }
+                    } else {
+                        // Revisar izquierda/derecha
+                        if ((currC > 0 && !crosswordGrid[currR][currC - 1].black && crosswordGrid[currR][currC - 1].char !== '') ||
+                            (currC < crosswordGridWidth - 1 && !crosswordGrid[currR][currC + 1].black && crosswordGrid[currR][currC + 1].char !== '')) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            // Comprobar extremos adyacentes (casillas inmediatamente anterior y posterior a la palabra)
+            if (isAcross) {
+                if (c > 0 && !crosswordGrid[r][c - 1].black) return false;
+                if (c + len < crosswordGridWidth && !crosswordGrid[r][c + len].black) return false;
+            } else {
+                if (r > 0 && !crosswordGrid[r - 1][c].black) return false;
+                if (r + len < crosswordGridHeight && !crosswordGrid[r + len][c].black) return false;
+            }
+
+            return true;
+        }
+
+        function placeWordInCrossword(word, clue, r, c, dir, num) {
+            const len = word.length;
+            const isAcross = dir === 'across';
+
+            // Registrar colocación
+            crosswordPlacements.push({ word, clue, r, c, dir, num });
+
+            // Rellenar cuadrícula física
+            for (let i = 0; i < len; i++) {
+                const currR = isAcross ? r : r + i;
+                const currC = isAcross ? c + i : c;
+                
+                const cell = crosswordGrid[currR][currC];
+                cell.black = false;
+                cell.char = word[i];
+                cell.r = currR;
+                cell.c = currC;
+
+                // Añadir el número de pista solo al primer carácter de la palabra
+                if (i === 0) {
+                    cell.number = num;
+                }
+            }
+        }
+
+        function renderCrosswordGrid() {
+            const container = document.getElementById('crucigramaGridContainer');
+            container.innerHTML = '';
+
+            container.style.gridTemplateColumns = `repeat(${crosswordGridWidth}, minmax(0, 1fr))`;
+
+            for (let r = 0; r < crosswordGridHeight; r++) {
+                for (let c = 0; c < crosswordGridWidth; c++) {
+                    const cellData = crosswordGrid[r][c];
+                    const cell = document.createElement('div');
+
+                    if (cellData.black) {
+                        cell.className = "aspect-square bg-slate-900 dark:bg-slate-950 border border-slate-800 rounded-md shadow-inner";
+                    } else {
+                        cell.className = "aspect-square bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md relative flex items-center justify-center";
+                        
+                        // Agregar número identificador si existe
+                        if (cellData.number) {
+                            const numSpan = document.createElement('span');
+                            numSpan.className = "absolute top-0.5 left-1 text-[8px] font-extrabold text-slate-400 dark:text-slate-500";
+                            numSpan.textContent = cellData.number;
+                            cell.appendChild(numSpan);
+                        }
+
+                        // Agregar entrada de letra interactiva
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.maxLength = 1;
+                        input.className = "w-full h-full text-center text-xs md:text-sm font-extrabold uppercase bg-transparent text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-amber-50 dark:focus:bg-amber-950/30 rounded-md pt-2 select-all";
+                        input.dataset.r = r;
+                        input.dataset.c = c;
+                        
+                        // Validación de victoria al cambiar
+                        input.addEventListener('input', (e) => {
+                            e.target.value = e.target.value.toUpperCase().replace(/[^A-ZÑ]/g, '');
+                            validateSingleCell(input, r, c);
+                            checkCrosswordWin();
+                        });
+
+                        // Navegación por teclado cómoda
+                        input.addEventListener('keydown', (e) => {
+                            navigateCrosswordKey(e, r, c);
+                        });
+
+                        cell.appendChild(input);
+                    }
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function validateSingleCell(input, r, c) {
+            const val = input.value.trim().toUpperCase();
+            const correctChar = crosswordGrid[r][c].char;
+
+            // Feedback visual sutil al escribir
+            if (val === '') {
+                input.parentElement.classList.remove('bg-green-100', 'dark:bg-green-950/40', 'border-green-400', 'bg-red-50', 'dark:bg-red-950/20', 'border-red-400');
+            } else if (val === correctChar) {
+                input.parentElement.classList.remove('bg-red-50', 'dark:bg-red-950/20', 'border-red-400');
+                input.parentElement.classList.add('bg-green-50', 'dark:bg-green-950/20', 'border-green-300', 'dark:border-green-800');
+            } else {
+                input.parentElement.classList.remove('bg-green-50', 'dark:bg-green-950/20', 'border-green-300');
+                input.parentElement.classList.add('bg-red-50', 'dark:bg-red-950/25', 'border-red-300');
+            }
+        }
+
+        function renderCrosswordClues() {
+            const listAcross = document.getElementById('cluesAcross');
+            const listDown = document.getElementById('cluesDown');
+
+            listAcross.innerHTML = '';
+            listDown.innerHTML = '';
+
+            // Clasificar pistas
+            crosswordPlacements.forEach(p => {
+                const li = document.createElement('li');
+                li.className = "p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-start gap-2 leading-relaxed cursor-pointer";
+                li.innerHTML = `<span class="font-bold text-blue-500">${p.num}.</span> <span class="text-slate-600 dark:text-slate-300">${p.clue}</span>`;
+
+                // Al hacer clic en una pista, hacer foco en su primera celda
+                li.onclick = () => {
+                    const firstInput = document.querySelector(`input[data-r="${p.r}"][data-c="${p.c}"]`);
+                    if (firstInput) {
+                        firstInput.focus();
+                        firstInput.select();
+                    }
+                };
+
+                if (p.dir === 'across') {
+                    listAcross.appendChild(li);
+                } else {
+                    listDown.appendChild(li);
+                }
+            });
+
+            if (listAcross.children.length === 0) {
+                listAcross.innerHTML = `<li class="text-xs text-slate-400 italic">Ninguna</li>`;
+            }
+            if (listDown.children.length === 0) {
+                listDown.innerHTML = `<li class="text-xs text-slate-400 italic">Ninguna</li>`;
+            }
+        }
+
+        // Navegación intuitiva con flechas del teclado dentro del crucigrama
+        function navigateCrosswordKey(e, r, c) {
+            let nextR = r;
+            let nextC = c;
+
+            // Encontrar la dirección lógica de la palabra actual bajo el cursor (Horizontal o Vertical)
+            let isMovingHorizontal = true;
+            const hasRightNeighbor = (c < crosswordGridWidth - 1 && !crosswordGrid[r][c+1].black);
+            const hasLeftNeighbor = (c > 0 && !crosswordGrid[r][c-1].black);
+            if (!hasRightNeighbor && !hasLeftNeighbor) {
+                isMovingHorizontal = false;
+            }
+
+            switch (e.key) {
+                case 'ArrowUp': nextR = r - 1; break;
+                case 'ArrowDown': nextR = r + 1; break;
+                case 'ArrowLeft': nextC = c - 1; break;
+                case 'ArrowRight': nextC = c + 1; break;
+                case 'Backspace':
+                    // Si la celda está vacía, regresar a la anterior según la palabra lógica
+                    if (e.target.value === '') {
+                        const targetPrevInput = isMovingHorizontal 
+                            ? document.querySelector(`input[data-r="${r}"][data-c="${c-1}"]`)
+                            : document.querySelector(`input[data-r="${r-1}"][data-c="${c}"]`);
+                        if (targetPrevInput) {
+                            targetPrevInput.focus();
+                            targetPrevInput.select();
+                        }
+                    } else {
+                        // Si tiene una letra, limpiarla pero quedarse ahí
+                        e.target.value = '';
+                        validateSingleCell(e.target, r, c);
+                    }
+                    return;
+                default:
+                    // Al presionar cualquier carácter del alfabeto, saltar de inmediato a la siguiente casilla lógica
+                    if (/^[a-zA-ZñÑ]$/.test(e.key)) {
+                        setTimeout(() => {
+                            const targetNextInput = isMovingHorizontal
+                                ? document.querySelector(`input[data-r="${r}"][data-c="${c+1}"]`)
+                                : document.querySelector(`input[data-r="${r+1}"][data-c="${c}"]`);
+                            if (targetNextInput) {
+                                targetNextInput.focus();
+                                targetNextInput.select();
+                            }
+                        }, 10);
+                    }
+                    return;
+            }
+
+            const targetInput = document.querySelector(`input[data-r="${nextR}"][data-c="${nextC}"]`);
+            if (targetInput) {
+                e.preventDefault();
+                targetInput.focus();
+            }
+        }
+
+        function checkCrosswordWin() {
+            let correct = true;
+            let inputsFilled = 0;
+            let totalInputs = 0;
+
+            const inputs = document.querySelectorAll('#crucigramaGridContainer input');
+            inputs.forEach(input => {
+                totalInputs++;
+                const r = parseInt(input.dataset.r);
+                const c = parseInt(input.dataset.c);
+                const val = input.value.trim().toUpperCase();
+
+                if (val !== '') {
+                    inputsFilled++;
+                }
+
+                // Validar contra la matriz de la solución generada
+                if (val !== crosswordGrid[r][c].char) {
+                    correct = false;
+                }
+            });
+
+            // Si todas son correctas
+            if (correct && inputsFilled === totalInputs) {
+                document.getElementById('crosswordWinBanner').classList.remove('hidden');
+                inputs.forEach(input => {
+                    input.parentElement.classList.remove('bg-green-50');
+                    input.parentElement.classList.add('bg-green-100', 'border-green-400', 'animate-pop');
+                    input.disabled = true;
+                });
+                showToast("¡Felicidades! Crucigrama resuelto correctamente.", "success");
+            }
+        }
+
+        // --- REINICIAR JUEGO ACTUAL ---
+        function resetCurrentGame() {
+            if (appMode === 'sopa') {
+                // Sopa de Letras: Marcar todo como no encontrado
+                sopaWords.forEach(w => w.found = false);
+                renderSopaGrid();
+                renderSopaWordsList();
+                document.getElementById('winBanner').classList.add('hidden');
+                showToast("Sopa de letras reiniciada", "info");
+            } else {
+                // Crucigrama: Limpiar inputs
+                const inputs = document.querySelectorAll('#crucigramaGridContainer input');
+                inputs.forEach(input => {
+                    input.value = '';
+                    input.disabled = false;
+                    input.parentElement.classList.remove('bg-green-50', 'bg-green-100', 'border-green-300', 'border-green-400', 'bg-red-50', 'border-red-300');
+                });
+                document.getElementById('crosswordWinBanner').classList.add('hidden');
+                showToast("Crucigrama reiniciado", "info");
+            }
+        }
+
+    </script>
+</body>
+</html>
