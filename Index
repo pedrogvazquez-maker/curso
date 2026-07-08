@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trivia MenteÁgil - Banco de Datos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        trivia: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (xlsx) para leer archivos de Excel localmente sin internet -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes pulse-timer {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-timer-alert {
+            animation: pulse-timer 0.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300">
+
+    <!-- CABECERA -->
+    <header class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-xl text-white shadow-md">
+                    <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg md:text-xl bg-gradient-to-r from-purple-600 to-indigo-500 dark:from-purple-400 dark:to-indigo-300 bg-clip-text text-transparent">
+                        MenteÁgil Trivia
+                    </h1>
+                    <p class="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 font-medium tracking-wide uppercase">Generador Offline con Excel</p>
+                </div>
+            </div>
+
+            <!-- Botones Derecho (Tema) -->
+            <div class="flex items-center gap-2">
+                <button id="themeToggle" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-slate-500 dark:text-slate-400" aria-label="Cambiar Tema">
+                    <i data-lucide="sun" id="sunIcon" class="w-5 h-5 hidden"></i>
+                    <i data-lucide="moon" id="moonIcon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 max-w-sm w-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800/20">
+        <i data-lucide="info" id="toastIcon" class="w-5 h-5 text-purple-400 shrink-0"></i>
+        <p id="toastMessage" class="text-xs font-semibold leading-relaxed"></p>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="flex-1 w-full max-w-4xl mx-auto px-4 py-6 flex flex-col justify-center items-center">
+
+        <!-- ================= PANTALLA 1: BIENVENIDA / CONFIGURACIÓN ================= -->
+        <div id="screen-welcome" class="w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-6 md:p-8 shadow-xl flex flex-col gap-6 max-w-2xl">
+            <div class="text-center space-y-2">
+                <h2 class="text-2xl font-extrabold text-slate-800 dark:text-white">¡Bienvenido a la Súper Trivia!</h2>
+                <p class="text-xs md:text-sm text-slate-500 dark:text-slate-400">Carga tu base de datos para generar un reto interactivo inmediato sin conexión a internet.</p>
+            </div>
+
+            <!-- Zona de Arrastre de Excel (BancoDatos_2.xlsx) -->
+            <div id="dropZone" class="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-purple-500 dark:hover:border-purple-500 rounded-2xl p-6 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-950/20">
+                <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="p-4 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 rounded-full">
+                        <i data-lucide="file-spreadsheet" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-slate-700 dark:text-slate-300">Arrastra tu BancoDatos_2.xlsx aquí</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">O haz clic para explorar tus archivos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta de Información de Formatos Admitidos -->
+            <div class="bg-purple-50/50 dark:bg-purple-950/10 border border-purple-100 dark:border-purple-900/30 rounded-2xl p-4 space-y-3">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                    <i data-lucide="help-circle" class="w-4 h-4"></i> Formatos admitidos en BancoDatos_2.xlsx
+                </h4>
+                <ul class="text-[11px] md:text-xs text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed list-disc list-inside">
+                    <li><strong class="text-purple-500">Formato Trivia (Recomendado):</strong> Columna A (Pregunta), Columna B (Respuesta Correcta), Columnas C, D, E (Respuestas Incorrectas).</li>
+                    <li><strong class="text-purple-500">Formato Conceptos:</strong> Columna A (Palabra de respuesta), Columna B (Definición o Pregunta). El sistema creará inteligentemente los distractores usando otros términos del mismo Excel.</li>
+                </ul>
+            </div>
+
+            <!-- Botones de Control de Inicio -->
+            <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                <!-- Botón de Arranque con Base de Datos Cargada o Demo -->
+                <button id="btnStartGame" onclick="startGame()" class="flex-1 py-4 px-6 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 active:scale-95 transition-all text-white font-bold rounded-2xl shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    <span id="startText">Comenzar con Preguntas Demo</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= PANTALLA 2: JUEGO ACTIVO ================= -->
+        <div id="screen-game" class="w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-4 md:p-6 shadow-xl flex flex-col gap-6 hidden max-w-2xl">
+            
+            <!-- Barra Superior de Estado (Vidas, Puntuación, Racha, Progreso) -->
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <!-- Progreso -->
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Pregunta</span>
+                    <span id="gameProgress" class="text-base font-extrabold text-slate-700 dark:text-white">1/10</span>
+                </div>
+                <!-- Vidas -->
+                <div class="flex items-center gap-1 bg-red-50 dark:bg-red-950/20 px-3 py-1.5 rounded-xl border border-red-100 dark:border-red-900/30">
+                    <i data-lucide="heart" class="w-4 h-4 fill-red-500 text-red-500"></i>
+                    <span id="gameLives" class="text-sm font-extrabold text-red-600 dark:text-red-400">3</span>
+                </div>
+                <!-- Racha Multiplicadora -->
+                <div id="streakContainer" class="hidden items-center gap-1 bg-amber-50 dark:bg-amber-950/20 px-3 py-1.5 rounded-xl border border-amber-100 dark:border-amber-900/30">
+                    <i data-lucide="flame" class="w-4 h-4 fill-amber-500 text-amber-500"></i>
+                    <span id="gameStreak" class="text-sm font-extrabold text-amber-600 dark:text-amber-400">x1</span>
+                </div>
+                <!-- Puntuación -->
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Puntaje</span>
+                    <span id="gameScore" class="text-lg font-black text-purple-600 dark:text-purple-400 tracking-tight">0000</span>
+                </div>
+            </div>
+
+            <!-- Temporizador de 30 Segundos y Barra de Progreso -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-400 dark:text-slate-500">
+                    <span class="uppercase tracking-wider">Tiempo Restante</span>
+                    <span id="timerText" class="text-sm font-black transition-all">30s</span>
+                </div>
+                <!-- Barra de Progreso de Tiempo -->
+                <div class="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="timerBar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-100" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Texto de la Pregunta -->
+            <div class="text-center py-4 px-2">
+                <h3 id="questionText" class="text-lg md:text-xl font-bold leading-relaxed text-slate-800 dark:text-white"></h3>
+            </div>
+
+            <!-- Opciones de Respuesta (4 Botones con targets grandes) -->
+            <div class="grid grid-cols-1 gap-3" id="optionsContainer">
+                <!-- Se generan dinámicamente -->
+            </div>
+        </div>
+
+        <!-- ================= PANTALLA 3: RESULTADOS / GAME OVER ================= -->
+        <div id="screen-results" class="w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/60 rounded-3xl p-6 md:p-8 shadow-xl flex flex-col gap-6 max-w-xl hidden">
+            <div class="text-center space-y-2 flex flex-col items-center">
+                <div id="resultIconContainer" class="p-4 rounded-full mb-2">
+                    <i id="resultIcon" class="w-12 h-12"></i>
+                </div>
+                <h2 id="resultTitle" class="text-2xl font-black text-slate-800 dark:text-white">¡Juego Completado!</h2>
+                <p id="resultSubtitle" class="text-xs md:text-sm text-slate-500 dark:text-slate-400"></p>
+            </div>
+
+            <!-- Tarjeta de Estadísticas de la Partida -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 text-center">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Puntaje Final</span>
+                    <span id="finalScore" class="text-2xl font-black text-purple-600 dark:text-purple-400">0</span>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 text-center">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Precisión</span>
+                    <span id="finalAccuracy" class="text-2xl font-black text-indigo-500">0%</span>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 text-center">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Racha Máxima</span>
+                    <span id="finalStreak" class="text-2xl font-black text-amber-500">x0</span>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 text-center">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Respuestas Correctas</span>
+                    <span id="finalCorrect" class="text-2xl font-black text-green-500">0/0</span>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                <button onclick="goToWelcome()" class="flex-1 py-4 px-6 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i data-lucide="home" class="w-5 h-5"></i>
+                    <span>Volver al Inicio</span>
+                </button>
+                <button onclick="startGame()" class="flex-1 py-4 px-6 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 active:scale-95 transition-all text-white font-bold rounded-2xl shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                    <span>Jugar Otra Vez</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full text-center py-5 text-xs text-slate-400 dark:text-slate-600 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-6 shrink-0">
+        <p>MenteÁgil Trivia • Funciona 100% Sin Conexión</p>
+    </footer>
+
+    <!-- LOGICA DEL JUEGO -->
+    <script>
+        
+        // Estado del Juego
+        let activeQuestions = [];
+        let loadedQuestionsFromExcel = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let lives = 3;
+        let streak = 0;
+        let maxStreak = 0;
+        let correctAnswersCount = 0;
+        let questionsAnswered = 0;
+        
+        // Temporizador
+        let timeRemaining = 30; // 30 segundos solicitados
+        let timerInterval = null;
+
+        // Base de Datos de Preguntas de Prueba (Fallback Demo)
+        const demoQuestions = [
+            {
+                question: "¿Cuál es el planeta más grande de nuestro sistema solar?",
+                correct: "Júpiter",
+                options: ["Júpiter", "Saturno", "Tierra", "Marte"]
+            },
+            {
+                question: "¿Quién pintó la famosa 'Mona Lisa'?",
+                correct: "Leonardo da Vinci",
+                options: ["Leonardo da Vinci", "Miguel Ángel", "Sandro Botticelli", "Vincent van Gogh"]
+            },
+            {
+                question: "¿Cuál es el océano más grande del mundo?",
+                correct: "Océano Pacífico",
+                options: ["Océano Pacífico", "Océano Atlántico", "Océano Índico", "Océano Ártico"]
+            },
+            {
+                question: "¿En qué país se encuentran las famosas Pirámides de Giza?",
+                correct: "Egipto",
+                options: ["Egipto", "México", "Perú", "Grecia"]
+            },
+            {
+                question: "¿Qué elemento químico tiene el símbolo 'O'?",
+                correct: "Oxígeno",
+                options: ["Oxígeno", "Oro", "Osmio", "Opalina"]
+            },
+            {
+                question: "¿Cuál es el país de origen del famoso plato 'Sushi'?",
+                correct: "Japón",
+                options: ["Japón", "China", "Corea del Sur", "Tailandia"]
+            },
+            {
+                question: "¿Cuántos huesos tiene un cuerpo humano adulto?",
+                correct: "206",
+                options: ["206", "300", "150", "250"]
+            },
+            {
+                question: "¿Cuál es el metal más caro del mundo?",
+                correct: "Rodio",
+                options: ["Rodio", "Oro", "Platino", "Paladio"]
+            },
+            {
+                question: "¿Qué gas absorben las plantas durante la fotosíntesis?",
+                correct: "Dióxido de carbono",
+                options: ["Dióxido de carbono", "Oxígeno", "Nitrógeno", "Helio"]
+            },
+            {
+                question: "¿Quién escribió la célebre obra 'Don Quijote de la Mancha'?",
+                correct: "Miguel de Cervantes",
+                options: ["Miguel de Cervantes", "Gabriel García Márquez", "Federico García Lorca", "Julio Cortázar"]
+            }
+        ];
+
+        // Sintetizador Web Audio API para no requerir descargas ni internet
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                // Doble campana agradable: C5 (523Hz) seguido de E5 (659Hz)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+                const osc2 = audioCtx.createOscillator();
+                const gain2 = audioCtx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(659.25, now + 0.1);
+                gain2.gain.setValueAtTime(0, now + 0.1);
+                gain2.gain.linearRampToValueAtTime(0.15, now + 0.15);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                osc.start(now);
+                osc.stop(now + 0.3);
+                osc2.start(now + 0.1);
+                osc2.stop(now + 0.45);
+            } else if (type === 'incorrect') {
+                // Zumbido grave descendente
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'tick') {
+                // Pequeño click de madera para los últimos 5 segundos del temporizador
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.1, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'gameover') {
+                // Escala triste descendente
+                const notes = [440, 392, 349, 311];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.type = 'sine';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.15);
+                    g.gain.setValueAtTime(0, now + idx * 0.15);
+                    g.gain.linearRampToValueAtTime(0.12, now + idx * 0.15 + 0.05);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.4);
+                    o.start(now + idx * 0.15);
+                    o.stop(now + idx * 0.15 + 0.4);
+                });
+            } else if (type === 'victory') {
+                // Fanfarria triunfal mayor
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.type = 'sine';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    g.gain.setValueAtTime(0, now + idx * 0.12);
+                    g.gain.linearRampToValueAtTime(0.12, now + idx * 0.12 + 0.05);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.5);
+                    o.start(now + idx * 0.12);
+                    o.stop(now + idx * 0.12 + 0.5);
+                });
+            }
+        }
+
+        // Configuración inicial de Tema
+        const themeToggle = document.getElementById('themeToggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            }
+        });
+
+        // --- TOAST NOTIFICATIONS ---
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = message;
+
+            if (type === 'success') {
+                toastIcon.setAttribute('data-lucide', 'check-circle-2');
+                toastIcon.className = "w-5 h-5 text-green-500 shrink-0";
+            } else if (type === 'error') {
+                toastIcon.setAttribute('data-lucide', 'alert-triangle');
+                toastIcon.className = "w-5 h-5 text-red-500 shrink-0";
+            } else {
+                toastIcon.setAttribute('data-lucide', 'info');
+                toastIcon.className = "w-5 h-5 text-purple-500 shrink-0";
+            }
+
+            lucide.createIcons();
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+        // Configuración de lector de Excel local BancoDatos_2.xlsx
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processExcelFile(e.target.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-purple-500', 'bg-purple-50/10');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-purple-500', 'bg-purple-50/10');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-purple-500', 'bg-purple-50/10');
+            if (e.dataTransfer.files.length > 0) {
+                processExcelFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function processExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+                    const parsedQuestions = [];
+                    const simplePairs = []; // para cuando solo hay 2 columnas
+
+                    jsonData.forEach((row, index) => {
+                        // Saltamos el encabezado si coincide con nombres típicos
+                        if (index === 0 && row[0] && typeof row[0] === 'string' && 
+                            (row[0].toLowerCase().includes('pregunta') || row[0].toLowerCase().includes('palabra') || row[0].toLowerCase().includes('word'))) {
+                            return;
+                        }
+
+                        // Limpiar celdas vacías
+                        const cleanRow = row.map(cell => cell !== undefined && cell !== null ? String(cell).trim() : "");
+                        const activeCells = cleanRow.filter(cell => cell !== "");
+
+                        if (activeCells.length >= 5) {
+                            // Formato Trivia: Pregunta, Respuesta Correcta, Opción 2, Opción 3, Opción 4
+                            parsedQuestions.push({
+                                question: activeCells[0],
+                                correct: activeCells[1],
+                                options: [activeCells[1], activeCells[2], activeCells[3], activeCells[4]]
+                            });
+                        } else if (activeCells.length >= 2) {
+                            // Formato de 2 columnas: Col A: Palabra/Respuesta, Col B: Concepto/Pregunta
+                            let q = activeCells[1];
+                            let a = activeCells[0];
+                            // Suponer que el texto más largo es la pregunta/concepto
+                            if (activeCells[0].length > activeCells[1].length) {
+                                q = activeCells[0];
+                                a = activeCells[1];
+                            }
+                            simplePairs.push({ question: q, correct: a });
+                        }
+                    });
+
+                    if (parsedQuestions.length > 0) {
+                        // Mezclar las opciones de cada pregunta
+                        parsedQuestions.forEach(q => {
+                            q.options = shuffleArray(q.options);
+                        });
+                        loadedQuestionsFromExcel = parsedQuestions;
+                        showToast(`¡Se cargaron ${loadedQuestionsFromExcel.length} preguntas de trivia con éxito!`, 'success');
+                        document.getElementById('startText').textContent = "Comenzar con Preguntas de Excel";
+                    } else if (simplePairs.length >= 4) {
+                        // Generar opciones y distractores dinámicos
+                        const generatedQuestions = [];
+                        const allAnswers = simplePairs.map(p => p.correct);
+
+                        simplePairs.forEach(pair => {
+                            const correctAns = pair.correct;
+                            const otherAnswers = allAnswers.filter(ans => ans !== correctAns);
+                            const shuffledOthers = shuffleArray(otherAnswers);
+                            const distractors = shuffledOthers.slice(0, 3);
+
+                            // Rellenar si no hay suficientes
+                            while (distractors.length < 3) {
+                                distractors.push("Opción Falsa " + (distractors.length + 2));
+                            }
+
+                            const options = [correctAns, ...distractors];
+                            generatedQuestions.push({
+                                question: pair.question,
+                                correct: correctAns,
+                                options: shuffleArray(options)
+                            });
+                        });
+
+                        loadedQuestionsFromExcel = generatedQuestions;
+                        showToast(`¡Se crearon ${loadedQuestionsFromExcel.length} preguntas desde tu Excel con opciones dinámicas!`, 'success');
+                        document.getElementById('startText').textContent = "Comenzar con Preguntas de Excel";
+                    } else {
+                        showToast("El Excel no tiene la cantidad mínima de información requerida.", "error");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast("No se pudo procesar el archivo Excel.", "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Función de barajado (Algoritmo de Fisher-Yates)
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // --- NÚCLEO DEL JUEGO ---
+
+        function startGame() {
+            // Verificar si cargamos de Excel o el Demo integrado
+            if (loadedQuestionsFromExcel.length > 0) {
+                activeQuestions = shuffleArray(loadedQuestionsFromExcel);
+                // Si el set de preguntas de Excel es muy grande, limitarlo a 15 por ronda
+                if (activeQuestions.length > 15) {
+                    activeQuestions = activeQuestions.slice(0, 15);
+                }
+            } else {
+                activeQuestions = shuffleArray(demoQuestions);
+            }
+
+            // Inicializar Variables
+            currentQuestionIndex = 0;
+            score = 0;
+            lives = 3;
+            streak = 0;
+            maxStreak = 0;
+            correctAnswersCount = 0;
+            questionsAnswered = 0;
+
+            // Actualizar Interfaz
+            document.getElementById('screen-welcome').classList.add('hidden');
+            document.getElementById('screen-results').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+
+            document.getElementById('gameLives').textContent = lives;
+            document.getElementById('gameScore').textContent = formatScore(score);
+            document.getElementById('streakContainer').classList.add('hidden');
+
+            loadQuestion();
+        }
+
+        function formatScore(num) {
+            return String(num).padStart(4, '0');
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= activeQuestions.length || lives <= 0) {
+                endGame();
+                return;
+            }
+
+            // Pregunta Actual
+            const qData = activeQuestions[currentQuestionIndex];
+            
+            // Actualizar textos
+            document.getElementById('gameProgress').textContent = `${currentQuestionIndex + 1}/${activeQuestions.length}`;
+            document.getElementById('questionText').textContent = qData.question;
+
+            // Renderizar Opciones ( targets táctiles cómodos de 4 opciones )
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+
+            qData.options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = "w-full py-4 px-5 text-left text-sm md:text-base font-bold bg-slate-50 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/20 text-slate-800 dark:text-slate-100 border-2 border-slate-200 dark:border-slate-700/80 hover:border-purple-500 dark:hover:border-purple-600 rounded-2xl transition-all active:scale-[0.98] outline-none flex items-center justify-between group";
+                button.innerHTML = `
+                    <span>${option}</span>
+                    <span class="w-6 h-6 rounded-full border border-slate-300 dark:border-slate-600 group-hover:border-purple-500 flex items-center justify-center text-xs text-transparent">✓</span>
+                `;
+                button.onclick = () => selectOption(button, option);
+                optionsContainer.appendChild(button);
+            });
+
+            // Reiniciar Temporizador a 30 segundos
+            timeRemaining = 30;
+            updateTimerUI();
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerUI();
+
+                if (timeRemaining <= 5 && timeRemaining > 0) {
+                    playSound('tick');
+                }
+
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const timerText = document.getElementById('timerText');
+            const timerBar = document.getElementById('timerBar');
+
+            timerText.textContent = `${timeRemaining}s`;
+
+            // Calcular porcentaje para la barra de progreso
+            const percentage = (timeRemaining / 30) * 100;
+            timerBar.style.width = `${percentage}%`;
+
+            // Cambiar estados de alerta visual de color en los últimos segundos
+            if (timeRemaining <= 5) {
+                timerText.className = "text-sm font-black text-red-500 animate-timer-alert";
+                timerBar.className = "h-full bg-gradient-to-r from-red-500 to-pink-500 transition-all duration-100";
+            } else if (timeRemaining <= 12) {
+                timerText.className = "text-sm font-black text-amber-500";
+                timerBar.className = "h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-100";
+            } else {
+                timerText.className = "text-sm font-black text-purple-600 dark:text-purple-400";
+                timerBar.className = "h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-100";
+            }
+        }
+
+        function selectOption(selectedButton, optionSelected) {
+            clearInterval(timerInterval);
+            questionsAnswered++;
+
+            const qData = activeQuestions[currentQuestionIndex];
+            const isCorrect = (optionSelected === qData.correct);
+
+            const optionsButtons = document.querySelectorAll('#optionsContainer button');
+            // Bloquear el resto de los botones
+            optionsButtons.forEach(btn => btn.disabled = true);
+
+            if (isCorrect) {
+                playSound('correct');
+                correctAnswersCount++;
+                streak++;
+                if (streak > maxStreak) maxStreak = streak;
+
+                // Aplicar estilo de correcto
+                selectedButton.className = "w-full py-4 px-5 text-left text-sm md:text-base font-bold bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border-2 border-green-500 rounded-2xl transition-all outline-none flex items-center justify-between animate-pop";
+                selectedButton.querySelector('span:last-child').className = "w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold";
+                selectedButton.querySelector('span:last-child').textContent = "✓";
+
+                // Calcular puntaje por velocidad (base de 100 + bonus de tiempo restante)
+                const timeBonus = timeRemaining * 5;
+                const pointsGained = Math.round((100 + timeBonus) * (1 + (streak - 1) * 0.1)); // Multiplicador de racha
+                score += pointsGained;
+                document.getElementById('gameScore').textContent = formatScore(score);
+
+                // Mostrar Racha
+                if (streak >= 2) {
+                    const streakContainer = document.getElementById('streakContainer');
+                    const gameStreak = document.getElementById('gameStreak');
+                    gameStreak.textContent = `x${streak}`;
+                    streakContainer.classList.remove('hidden');
+                }
+            } else {
+                playSound('incorrect');
+                streak = 0;
+                lives--;
+                document.getElementById('gameLives').textContent = lives;
+                document.getElementById('streakContainer').classList.add('hidden');
+
+                // Resaltar el botón elegido por el usuario como incorrecto
+                selectedButton.className = "w-full py-4 px-5 text-left text-sm md:text-base font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 border-2 border-red-500 rounded-2xl transition-all outline-none flex items-center justify-between";
+                selectedButton.querySelector('span:last-child').className = "w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold";
+                selectedButton.querySelector('span:last-child').textContent = "✗";
+
+                // Revelar la respuesta correcta de fondo
+                optionsButtons.forEach(btn => {
+                    const btnText = btn.querySelector('span:first-child').textContent;
+                    if (btnText === qData.correct) {
+                        btn.className = "w-full py-4 px-5 text-left text-sm md:text-base font-bold bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border-2 border-green-500 rounded-2xl transition-all outline-none flex items-center justify-between";
+                        btn.querySelector('span:last-child').className = "w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold";
+                        btn.querySelector('span:last-child').textContent = "✓";
+                    }
+                });
+            }
+
+            // Avanzar automáticamente a la siguiente pregunta después de 2 segundos
+            setTimeout(() => {
+                currentQuestionIndex++;
+                loadQuestion();
+            }, 2000);
+        }
+
+        // El tiempo se terminó
+        function handleTimeout() {
+            questionsAnswered++;
+            streak = 0;
+            lives--;
+            document.getElementById('gameLives').textContent = lives;
+            document.getElementById('streakContainer').classList.add('hidden');
+            playSound('incorrect');
+
+            showToast("¡Se agotó el tiempo!", "error");
+
+            const qData = activeQuestions[currentQuestionIndex];
+            const optionsButtons = document.querySelectorAll('#optionsContainer button');
+            
+            optionsButtons.forEach(btn => {
+                btn.disabled = true;
+                const btnText = btn.querySelector('span:first-child').textContent;
+                if (btnText === qData.correct) {
+                    btn.className = "w-full py-4 px-5 text-left text-sm md:text-base font-bold bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border-2 border-green-500 rounded-2xl transition-all outline-none flex items-center justify-between";
+                    btn.querySelector('span:last-child').className = "w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold";
+                    btn.querySelector('span:last-child').textContent = "✓";
+                }
+            });
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                loadQuestion();
+            }, 2000);
+        }
+
+        // --- PANTALLA DE RESULTADOS ---
+
+        function endGame() {
+            clearInterval(timerInterval);
+
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-results').classList.remove('hidden');
+
+            const resultIcon = document.getElementById('resultIcon');
+            const resultIconContainer = document.getElementById('resultIconContainer');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultSubtitle = document.getElementById('resultSubtitle');
+
+            // Determinar si ganó o se quedó sin vidas
+            if (lives > 0) {
+                playSound('victory');
+                resultIconContainer.className = "p-4 rounded-full mb-2 bg-green-50 dark:bg-green-950/30 text-green-500";
+                resultIcon.setAttribute('data-lucide', 'trophy');
+                resultTitle.textContent = "¡Partida Completada!";
+                resultSubtitle.textContent = "¡Eres todo un maestro de la trivia! Tu puntuación se ha registrado.";
+            } else {
+                playSound('gameover');
+                resultIconContainer.className = "p-4 rounded-full mb-2 bg-red-50 dark:bg-red-950/30 text-red-500";
+                resultIcon.setAttribute('data-lucide', 'heart-off');
+                resultTitle.textContent = "¡Fin de la Partida!";
+                resultSubtitle.textContent = "Te has quedado sin vidas. ¡No te rindas e inténtalo de nuevo!";
+            }
+
+            // Actualizar datos de reporte final
+            document.getElementById('finalScore').textContent = score;
+            const accuracy = questionsAnswered > 0 ? Math.round((correctAnswersCount / questionsAnswered) * 100) : 0;
+            document.getElementById('finalAccuracy').textContent = `${accuracy}%`;
+            document.getElementById('finalStreak').textContent = `x${maxStreak}`;
+            document.getElementById('finalCorrect').textContent = `${correctAnswersCount}/${questionsAnswered}`;
+
+            lucide.createIcons();
+        }
+
+        function goToWelcome() {
+            document.getElementById('screen-results').classList.add('hidden');
+            document.getElementById('screen-welcome').classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
